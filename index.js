@@ -1,75 +1,66 @@
-import express from "express";
-import gplay from "google-play-scraper";
+// 📌 Configuración
+var MAX_REVIEWS = 20;  // cambia a 50, 100... si quieres más
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+function updateAndroidReviews() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var appsSheet = ss.getSheetByName("Apps");
+  var reviewsSheet = ss.getSheetByName("Reviews Android");
+  var lastRow = appsSheet.getLastRow();
 
-// ✅ Endpoint: /version?appId=com.whatsapp
-app.get("/version", async (req, res) => {
-  try {
-    const { appId } = req.query;
-    if (!appId) return res.status(400).json({ error: "Missing appId" });
+  for (var i = 2; i <= lastRow; i++) {
+    var appName  = appsSheet.getRange(i, 1).getValue();
+    var appId    = appsSheet.getRange(i, 2).getValue();
+    var platform = (appsSheet.getRange(i, 3).getValue() || "").toLowerCase();
 
-    const appInfo = await gplay.app({ appId });
-    res.json({
-      appId,
-      title: appInfo.title,
-      version: appInfo.version
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (platform === "android" && appId) {
+      try {
+        var url = "https://play-scraper-api.onrender.com/reviews?appId=" + encodeURIComponent(appId) + "&num=" + MAX_REVIEWS;
+        var response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+        var reviews = JSON.parse(response.getContentText());
+
+        if (!reviews || reviews.length === 0) {
+          Logger.log("ℹ️ No hay reseñas para " + appName + " (" + appId + ")");
+          continue;
+        }
+
+        // Ordenar por fecha descendente
+        reviews.sort(function(a, b) {
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
+
+        // Buscar la última fecha ya guardada
+        var lastSavedDate = getLastReviewDate(reviewsSheet, appId, "Android");
+
+        // Filtrar solo reseñas más nuevas
+        var newReviews = reviews.filter(function(r) {
+          var reviewDate = new Date(r.date).getTime();
+          return !lastSavedDate || reviewDate > lastSavedDate;
+        });
+
+        if (newReviews.length > 0) {
+          Logger.log("➕ Añadiendo " + newReviews.length + " reseñas nuevas para " + appName);
+        } else {
+          Logger.log("ℹ️ No hay reseñas nuevas para " + appName);
+        }
+
+        // Insertar nuevas reseñas ARRIBA
+        newReviews.reverse().forEach(function(r) {
+          reviewsSheet.insertRowBefore(2);
+          reviewsSheet.getRange(2, 1, 1, 8).setValues([[
+            appName,
+            appId,
+            "Android",
+            r.userName || "",
+            r.title || "",
+            r.text || "",
+            r.score || "",
+            new Date(r.date)
+          ]]);
+        });
+
+      } catch (err) {
+        Logger.log("❌ Reviews Android fallo " + appId + ": " + err);
+      }
+    }
   }
-});
-
-// ✅ Endpoint: /app?appId=com.whatsapp
-// Devuelve versión, rating y nº de valoraciones
-app.get("/app", async (req, res) => {
-  try {
-    const { appId } = req.query;
-    if (!appId) return res.status(400).json({ error: "Missing appId" });
-
-    const appInfo = await gplay.app({ appId });
-    res.json({
-      appId,
-      title: appInfo.title,
-      version: appInfo.version,
-      score: appInfo.score,      // ⭐ rating medio
-      ratings: appInfo.ratings,  // 📊 nº total de valoraciones
-      reviews: appInfo.reviews   // 👥 nº de reseñas (si está disponible)
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ✅ Endpoint: /reviews?appId=com.whatsapp&num=20
-// Devuelve las últimas reseñas ordenadas por más recientes
-app.get("/reviews", async (req, res) => {
-  try {
-    const { appId, num } = req.query;
-    if (!appId) return res.status(400).json({ error: "Missing appId" });
-
-    const reviews = await gplay.reviews({
-      appId,
-      sort: gplay.sort.NEWEST,
-      num: parseInt(num) || 20
-    });
-
-    // Solo devolvemos lo que interesa
-    const simplified = reviews.data.map(r => ({
-      userName: r.userName,
-      title: r.title,
-      text: r.text,
-      score: r.score,
-      date: r.date
-    }));
-
-    res.json(simplified);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+}
