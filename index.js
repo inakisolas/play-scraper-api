@@ -7,10 +7,15 @@ const PORT = process.env.PORT || 3000;
 // Endpoint: /version?appId=com.whatsapp
 app.get("/version", async (req, res) => {
   try {
-    const { appId } = req.query;
+    const { appId, lang, country } = req.query;
     if (!appId) return res.status(400).json({ error: "Missing appId" });
 
-    const appInfo = await gplay.app({ appId });
+    const appInfo = await gplay.app({
+      appId,
+      lang: lang || "es",        // idioma por defecto español
+      country: country || "es"   // país por defecto España
+    });
+
     res.json({
       appId,
       title: appInfo.title,
@@ -21,14 +26,19 @@ app.get("/version", async (req, res) => {
   }
 });
 
-// Endpoint: /app?appId=com.whatsapp
+// Endpoint: /app?appId=com.whatsapp&lang=es&country=es
 // Devuelve rating y nº de valoraciones
 app.get("/app", async (req, res) => {
   try {
-    const { appId } = req.query;
+    const { appId, lang, country } = req.query;
     if (!appId) return res.status(400).json({ error: "Missing appId" });
 
-    const appInfo = await gplay.app({ appId });
+    const appInfo = await gplay.app({
+      appId,
+      lang: lang || "es",
+      country: country || "es"
+    });
+
     res.json({
       appId,
       title: appInfo.title,
