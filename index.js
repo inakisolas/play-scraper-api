@@ -12,8 +12,8 @@ app.get("/version", async (req, res) => {
 
     const appInfo = await gplay.app({
       appId,
-      lang: lang || "es",        // idioma por defecto español
-      country: country || "es"   // país por defecto España
+      ...(lang ? { lang } : {}),        // solo añade si se pasa
+      ...(country ? { country } : {})   // igual aquí
     });
 
     res.json({
@@ -35,8 +35,8 @@ app.get("/app", async (req, res) => {
 
     const appInfo = await gplay.app({
       appId,
-      lang: lang || "es",
-      country: country || "es"
+      ...(lang ? { lang } : {}),
+      ...(country ? { country } : {})
     });
 
     res.json({
@@ -61,9 +61,9 @@ app.get("/reviews", async (req, res) => {
     const reviews = await gplay.reviews({
       appId,
       sort: gplay.sort.NEWEST,   // 🔥 reseñas más recientes
-      num: parseInt(num) || 20,  // cuántas reseñas traer
-      lang: lang || "es",        // idioma (ej. "es", "en")
-      country: country || "es"   // país (ej. "es", "us")
+      num: parseInt(num) || 20,
+      ...(lang ? { lang } : {}),
+      ...(country ? { country } : {})
     });
 
     res.json(reviews.data);
