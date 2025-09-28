@@ -39,29 +39,34 @@ app.get("/app", async (req, res) => {
       ...(country ? { country } : {})
     });
 
-    // ✅ Usar score directo si está bien, si no fallback con histogram
-    let score = appInfo.score;
-    if (score == null || score <= 1) {
-      if (appInfo.histogram) {
-        let total = 0, sum = 0;
-        for (let stars in appInfo.histogram) {
-          total += appInfo.histogram[stars];
-          sum += parseInt(stars) * appInfo.histogram[stars];
-        }
-        if (total > 0) {
-          score = sum / total;
-        }
+    // 🧮 Calcular score desde histogram
+    let scoreFromHistogram = null;
+    if (appInfo.histogram) {
+      let total = 0, sum = 0;
+      for (let stars in appInfo.histogram) {
+        total += appInfo.histogram[stars];
+        sum += parseInt(stars) * appInfo.histogram[stars];
       }
+      if (total > 0) {
+        scoreFromHistogram = sum / total;
+      }
+    }
+
+    // ✅ Usar score de Play si parece correcto, si no fallback
+    let score = appInfo.score;
+    if (score == null || score <= 1 || score > 5) {
+      score = scoreFromHistogram;
     }
 
     res.json({
       appId,
       title: appInfo.title,
       version: appInfo.version,
-      score: score,                // ⭐ rating medio
-      ratings: appInfo.ratings,    // 📊 nº total de valoraciones
-      reviews: appInfo.reviews,    // 👥 nº de reseñas (si está disponible)
-      histogram: appInfo.histogram // 📌 votos por estrellas
+      score: score,                          // ⭐ oficial (o corregido)
+      scoreFromHistogram: scoreFromHistogram, // 🧮 siempre calculado
+      ratings: appInfo.ratings,              // 📊 nº total de valoraciones
+      reviews: appInfo.reviews,              // 👥 nº de reseñas (si está disponible)
+      histogram: appInfo.histogram           // 📌 votos por estrellas
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
