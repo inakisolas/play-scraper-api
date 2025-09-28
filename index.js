@@ -12,8 +12,8 @@ app.get("/version", async (req, res) => {
 
     const appInfo = await gplay.app({
       appId,
-      ...(lang ? { lang } : {}),        // solo añade si se pasa
-      ...(country ? { country } : {})   // igual aquí
+      ...(lang ? { lang } : {}),
+      ...(country ? { country } : {})
     });
 
     res.json({
@@ -39,11 +39,24 @@ app.get("/app", async (req, res) => {
       ...(country ? { country } : {})
     });
 
+    // 🔧 Recalcular score desde histogram (más fiable que appInfo.score)
+    let score = appInfo.score;
+    if (appInfo.histogram) {
+      let total = 0, sum = 0;
+      for (let stars in appInfo.histogram) {
+        total += appInfo.histogram[stars];
+        sum += parseInt(stars) * appInfo.histogram[stars];
+      }
+      if (total > 0) {
+        score = sum / total;
+      }
+    }
+
     res.json({
       appId,
       title: appInfo.title,
       version: appInfo.version,
-      score: appInfo.score,      // ⭐ rating medio
+      score: score,              // ⭐ rating medio real
       ratings: appInfo.ratings,  // 📊 nº total de valoraciones
       reviews: appInfo.reviews   // 👥 nº de reseñas (si está disponible)
     });
