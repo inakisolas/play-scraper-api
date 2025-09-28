@@ -27,7 +27,7 @@ app.get("/version", async (req, res) => {
 });
 
 // Endpoint: /app?appId=com.whatsapp&lang=es&country=es
-// Devuelve rating y nº de valoraciones
+// Devuelve rating, nº de valoraciones y el histograma
 app.get("/app", async (req, res) => {
   try {
     const { appId, lang, country } = req.query;
@@ -39,16 +39,18 @@ app.get("/app", async (req, res) => {
       ...(country ? { country } : {})
     });
 
-    // 🔧 Recalcular score desde histogram (más fiable que appInfo.score)
+    // ✅ Usar score directo si está bien, si no fallback con histogram
     let score = appInfo.score;
-    if (appInfo.histogram) {
-      let total = 0, sum = 0;
-      for (let stars in appInfo.histogram) {
-        total += appInfo.histogram[stars];
-        sum += parseInt(stars) * appInfo.histogram[stars];
-      }
-      if (total > 0) {
-        score = sum / total;
+    if (score == null || score <= 1) {
+      if (appInfo.histogram) {
+        let total = 0, sum = 0;
+        for (let stars in appInfo.histogram) {
+          total += appInfo.histogram[stars];
+          sum += parseInt(stars) * appInfo.histogram[stars];
+        }
+        if (total > 0) {
+          score = sum / total;
+        }
       }
     }
 
@@ -56,9 +58,10 @@ app.get("/app", async (req, res) => {
       appId,
       title: appInfo.title,
       version: appInfo.version,
-      score: score,              // ⭐ rating medio real
-      ratings: appInfo.ratings,  // 📊 nº total de valoraciones
-      reviews: appInfo.reviews   // 👥 nº de reseñas (si está disponible)
+      score: score,                // ⭐ rating medio
+      ratings: appInfo.ratings,    // 📊 nº total de valoraciones
+      reviews: appInfo.reviews,    // 👥 nº de reseñas (si está disponible)
+      histogram: appInfo.histogram // 📌 votos por estrellas
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
